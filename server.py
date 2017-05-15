@@ -85,11 +85,12 @@ class BufferedPipe(object):
 
 
 class LexProcessor(object):
-    def __init__(self, path, aws_id, aws_secret):
+    def __init__(self, path, aws_id, aws_secret, session_attributes=None):
         self._aws_region = 'us-east-1'
         self._aws_id = aws_id
         self._aws_secret = aws_secret
         self._path = path
+        self._session_attributes = session_attributes
     def process(self, count, payload, id):
         if count > CLIP_MIN_FRAMES:  # If the buffer is less than CLIP_MIN_MS, ignore it
             if logging.getLogger().level == 10: #if we're in Debug then save the audio clip
@@ -103,6 +104,8 @@ class LexProcessor(object):
             info('Processing {} frames for {}'.format(str(count), id))
             endpoint = 'https://runtime.lex.{}.amazonaws.com{}'.format(self._aws_region, self._path)
             headers = {'Content-Type': 'audio/l16; channels=1; rate=16000', 'Accept': 'audio/pcm'}
+            if self._session_attributes is not None:
+                headers['x-amz-lex-session-attributes'] = self._session_attributes            
             req = requests.Request('POST', endpoint, auth=auth, headers=headers)
             prepped = req.prepare()
             info(prepped.headers)
@@ -159,7 +162,7 @@ class WSHandler(tornado.websocket.WebSocketHandler):
             info(message)
             # Here we should be extracting the meta data that was sent and attaching it to the connection object
             data = json.loads(message)    
-            self.processor = LexProcessor(self.path, data['aws_key'], data['aws_secret']).process
+            self.processor = LexProcessor(self.path, data['aws_key'], data['aws_secret'], data.get('session_attributes', None)).process
             self.frame_buffer = BufferedPipe(MAX_LENGTH // MS_PER_FRAME, self.processor)
             self.write_message('ok')
     def on_close(self):

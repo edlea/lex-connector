@@ -162,7 +162,8 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         else:
             info(message)
             # Here we should be extracting the meta data that was sent and attaching it to the connection object
-            data = json.loads(message)    
+            data = json.loads(message)   
+            # TODO: Look for a value from Donna indicating that we expect to record a message rather than recieve an instruction 
             self.processor = LexProcessor(self.path, data['aws_key'], data['aws_secret']).process
             self.frame_buffer = BufferedPipe(MAX_LENGTH // MS_PER_FRAME, self.processor)
             self.write_message('ok')
@@ -211,6 +212,8 @@ def main(argv=sys.argv[1:]):
         ])
         http_server = tornado.httpserver.HTTPServer(application)
         http_server.listen(config.port)
+        debug("Blocking log threshold 50ms")
+        tornado.ioloop.IOLoop.instance().set_blocking_log_threshold(0.05)
         info("Running on port %s", config.port)
         tornado.ioloop.IOLoop.instance().start()
     except KeyboardInterrupt:
